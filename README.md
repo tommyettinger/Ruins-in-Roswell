@@ -1,4 +1,4 @@
-Ruins-in-Roswell
+Ruins in Roswell
 ================
 
 A text-based dungeon exploration roguelike/RPG written in Clojure.
