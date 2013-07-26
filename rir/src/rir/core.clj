@@ -381,6 +381,21 @@
                                                       (= (aget dd (+ (:pos @%) 1)) floor)) (swap! % assoc :pos (+ (:pos @%) 1)))]
                                             ) mon)))))
 
+(defn move-player [pc mons ^ints dd ^SGPane p  newpos]
+  (do (if
+        (and (apply distinct? (conj (map (fn [atm] (:pos @atm)) @mons) newpos))
+             (= (aget dd newpos) floor))
+        (do
+          (swap! pc assoc :pos newpos)
+          (move-monster @mons dd p)
+          (freshen dd p)
+          )
+        (when (= (aget dd newpos) floor)
+          (move-monster @mons dd p)
+          (freshen dd p)
+          (doseq [mon @mons] (when (= (:pos @mon) newpos)
+                                   (damage-monster mon dd p)))))))
+
 (defn -main
 	[& args]
 	(invoke-later
@@ -398,58 +413,10 @@
                                (let [^KeyEvent e (.next kl)]
                                    (when (not (distinct? (.getKeyCode e) KeyEvent/VK_UP KeyEvent/VK_DOWN KeyEvent/VK_LEFT KeyEvent/VK_RIGHT))
                           (condp = (.getKeyCode e)
-                              KeyEvent/VK_UP (do (if
-                                                   (and (apply distinct? (conj (map (fn [atm] (:pos @atm)) @monsters) (- (:pos @player) wide)))
-                                                            (= (aget dd (- (:pos @player) wide)) floor))
-                                                   (do
-                                                       (swap! player assoc :pos (- (:pos @player) wide))
-                                                       (move-monster @monsters dd p)
-                                                       (freshen dd p)
-                                                       )
-                                                   (when (= (aget dd (- (:pos @player) wide)) floor)
-                                                       (move-monster @monsters dd p)
-                                                       (freshen dd p)
-                                                       (doseq [mon @monsters] (when (= (:pos @mon) (- (:pos @player) wide))
-                                                                          (damage-monster mon dd p))))))
-                              KeyEvent/VK_DOWN (do (if
-                                                     (and (apply distinct? (conj (map (fn [atm] (:pos @atm)) @monsters) (+ (:pos @player) wide)))
-                                                            (= (aget dd (+ (:pos @player) wide)) floor))
-                                                     (do
-                                                       (swap! player assoc :pos (+ (:pos @player) wide))
-                                                       (move-monster @monsters dd p)
-                                                       (freshen dd p)
-                                                             )
-                                                     (when (= (aget dd (+ (:pos @player) wide)) floor)
-                                                         (move-monster @monsters dd p)
-                                                         (freshen dd p)
-                                                         (doseq [mon @monsters] (when (= (:pos @mon) (+ (:pos @player) wide))
-                                                                          (damage-monster mon dd p))))))
-                              KeyEvent/VK_LEFT (do (if
-                                                     (and (apply distinct? (conj (map (fn [atm] (:pos @atm)) @monsters) (- (:pos @player) 1)))
-                                                            (= (aget dd (- (:pos @player) 1)) floor))
-                                                     (do
-                                                       (swap! player assoc :pos (- (:pos @player) 1))
-                                                       (move-monster @monsters dd p)
-                                                       (freshen dd p)
-                                                       )
-                                                     (when (= (aget dd (- (:pos @player) 1)) floor)
-                                                         (move-monster @monsters dd p)
-                                                         (freshen dd p)
-                                                         (doseq [mon @monsters] (when (= (:pos @mon) (- (:pos @player) 1))
-                                                                          (damage-monster mon dd p))))))
-                              KeyEvent/VK_RIGHT (do (if
-                                                      (and (apply distinct? (conj (map (fn [atm] (:pos @atm)) @monsters) (+ (:pos @player) 1)))
-                                                            (= (aget dd (+ (:pos @player) 1)) floor))
-                                                     (do
-                                                         (swap! player assoc :pos (+ (:pos @player) 1))
-                                                         (move-monster @monsters dd p)
-                                                         (freshen dd p)
-                                                         )
-                                                     (when (= (aget dd (+ (:pos @player) 1)) floor)
-                                                         (move-monster @monsters dd p)
-                                                         (freshen dd p)
-                                                         (doseq [mon @monsters] (when (= (:pos @mon) (+ (:pos @player) 1))
-                                                                          (damage-monster mon dd p))))))
+                              KeyEvent/VK_UP    (move-player player monsters dd p (- (:pos @player) wide))
+                              KeyEvent/VK_DOWN  (move-player player monsters dd p (+ (:pos @player) wide))
+                              KeyEvent/VK_LEFT  (move-player player monsters dd p (- (:pos @player) 1))
+                              KeyEvent/VK_RIGHT (move-player player monsters dd p (+ (:pos @player) 1))
                               nil)))))
                            :delay 50)
                 ]
