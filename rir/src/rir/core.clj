@@ -22,7 +22,8 @@
 (def floor 2000)
 (def ^Integer GOAL 0)
 
-
+(def cleared-levels (atom {}))
+(def dlevel (atom 0))
 (defn ^"[Z" init-full-seen [] (let [ ^"[Z" res1d (make-array Boolean/TYPE (* wide high))]
                    (doseq [i (range (* wide high))]
                      (aset res1d i false))
@@ -223,7 +224,14 @@
                                                                                                              (map (fn [atm] (if (= (:pos @atm) 0) nil (:pos @atm))) @monsters))
                                                                                                         [rand-loc (:pos @player)]))
                                                                                                  (= (hiphip/aget dngn rand-loc) floor))
+			                                                        (recur (do (swap! entity assoc :pos rand-loc) (inc ctr))) (recur ctr))))))
+  ([dngn entity starting-cell] (loop [ctr 0] (if (>= ctr 1) dngn (let [rand-loc (rand-nth (keep-indexed #(if (= %2 starting-cell) %1) (vec dngn)))]
+                                                                   (if (and (apply distinct? (concat (filter (complement nil?)
+                                                                                                             (map (fn [atm] (if (= (:pos @atm) 0) nil (:pos @atm))) @monsters))
+                                                                                                        [rand-loc (:pos @player)]))
+                                                                                                 (= (hiphip/aget dngn rand-loc) starting-cell))
 			                                                        (recur (do (swap! entity assoc :pos rand-loc) (inc ctr))) (recur ctr)))))))
+
 (defn alter-dungeon
   ([dngn cell] (loop [ctr 0] (if (>= ctr  1) dngn (let [rand-loc (rand-int (* iw ih))]
                                                     (if (= (hiphip/aget dngn rand-loc) floor)
@@ -297,18 +305,22 @@
                                                                 shown]
                                     (let [d0 (make-bones)
                                           d2 (int-array (map #(if (< % wall) floor %) (replace {floor wall} (dijkstra (first d0)))))
+                                          d2-eh (init-dungeon d2)
                                           w2 (apply max (filter (partial > wall) (dijkstra (hiphip/aclone d2))))]
                                       (recur d2 w2 (last d0)))))))
 
-(defn freshen [dd ^SGPane p] (let [player-fov-new (swap! player assoc :seen (run-fov-player player dd))
+(defn freshen [dd ^SGPane p & args]
+  (let [player-fov-new (swap! player assoc :seen (run-fov-player player dd))
                                      ]
                                  (doseq [monster @monsters] (let [monster-fov-new (run-fov monster dd)] (when (> (aget monster-fov-new (mod (:pos @player) wide) (quot (:pos @player) wide)) 0)
                                       (do (swap! monster assoc :dijkstra (let [new-d (hiphip/aclone ^ints (:dungeon @dd))] (aset new-d (int (:pos @player)) GOAL) (dijkstra new-d)))))))
                                  (doseq [x (range wide) y (range high)]
-                                                 (when (and  (<= (- (mod (:pos @player) wide) x) 16)
+                                                 (when
+                                                   (or args
+                                                     (and  (<= (- (mod (:pos @player) wide) x) 16)
                                                            (>= (- (mod (:pos @player) wide) x) -16)
                                                            (<= (- (quot (:pos @player) wide) y) 16)
-                                                           (>= (- (quot (:pos @player) wide) y) -16))
+                                                           (>= (- (quot (:pos @player) wide) y) -16)))
                                                    (. p placeCharacter x
                                                                      y
                                                                      (if (= (aget ^ints (:dungeon @dd) (+ x (* wide y))) wall) \# (aget ^chars (:shown @dd) (+ x (* wide y))))
@@ -352,7 +364,7 @@
       (do
         (doseq [^KeyListener kl (vec (.getKeyListeners ^Component f))] (.removeKeyListener ^Component f kl))
         (show! (pack! (dialog
-            :content (str "GAME OVER.  You explored " (count (filter true? (vec (:full-seen @player)))) " squares.")
+            :content (str "GAME OVER.  You explored " (count (filter true? (vec (:full-seen @player)))) " squares and reached floor " (inc @dlevel) ".")
             :success-fn (fn [jop] (System/exit 0))))))
       (freshen dd p))))
 
@@ -419,12 +431,52 @@
             floor (do
                     (move-monster @mons dd p)
                     (freshen dd p))
-            10001 (show! (pack! (dialog
-            :content (str "YOU SURVIVED.  You explored " (count (filter true? (vec (:full-seen @player)))) " squares.")
-            :success-fn (fn [jop] (System/exit 0)))))
+            10001 (show! (pack! (if (= @dlevel 0)
+                                  (dialog
+            :content (str "YOU ESCAPED.  You explored " (count (filter true? (vec (:full-seen @player)))) " squares.")
+            :success-fn (fn [jop] (System/exit 0)))
+                                  (dialog
+            :content (str "YOU ASCEND CLOSER TO THE SURFACE...  You explored " (count (filter true? (vec (:full-seen @player)))) " squares.")
+            :success-fn (fn [jop]
+                          (swap! cleared-levels assoc @dlevel (assoc @dd :full-seen (aclone ^"[Z" (:full-seen @player))))
+                          (swap! dlevel dec)
+                          (let [
+                                dd1 (:dungeon (get @cleared-levels @dlevel))
+                                dungeon-res (:res (get @cleared-levels @dlevel))
+                                shown (:shown (get @cleared-levels @dlevel))
+                                player-calc  (init-dungeon dd1 player 10002)
+                                monster-calc (doall (map #(init-dungeon dd1 %) @monsters))]
+                            (harray/afill! boolean [[i x] ^"[Z" (:full-seen @player)] (aget ^"[Z" (:full-seen (get @cleared-levels ^int @dlevel)) i))
+                            (reset! dd {:dungeon dd1 :shown shown :res dungeon-res})
+                            (freshen dd p :full))))
+                                  )))
             10002 (show! (pack! (dialog
-            :content (str "YOU DESCEND INTO THE DEPTHS... YOU WIN!  You explored " (count (filter true? (vec (:full-seen @player)))) " squares.")
-            :success-fn (fn [jop] (System/exit 0)))))
+            :content (str "YOU DESCEND FURTHER INTO THE DEPTHS...  You explored " (count (filter true? (vec (:full-seen @player)))) " squares.")
+            :success-fn (fn [jop]
+                          (swap! cleared-levels assoc @dlevel (assoc @dd :full-seen (aclone ^"[Z" (:full-seen @player))))
+                          (swap! dlevel inc)
+                          (if (contains? @cleared-levels @dlevel)
+                            (let [
+                                dd1 (:dungeon (get @cleared-levels @dlevel))
+                                dungeon-res (:res (get @cleared-levels @dlevel))
+                                shown (:shown (get @cleared-levels @dlevel))
+                                player-calc  (init-dungeon dd1 player 10001)
+                                monster-calc (doall (map #(init-dungeon dd1 %) @monsters))]
+                              (harray/afill! Boolean/TYPE [[i x] ^"[Z" (:full-seen @player)] (aget ^"[Z" (:full-seen (get @cleared-levels ^int @dlevel)) i))
+                              (reset! dd {:dungeon dd1 :shown shown :res dungeon-res})
+                              (freshen dd p :full))
+                            (let [
+                                dd0 (prepare-bones)
+                                dd1 (first dd0)
+                                dungeon-res (dungeon-resistances dd1)
+                                shown (last dd0)
+                                player-calc  (init-dungeon dd1 player 10001)
+                                monster-calc (doall (map #(init-dungeon dd1 %) @monsters))
+                                blank-seen (init-full-seen)]
+                            (harray/afill! Boolean/TYPE [[i x] ^"[Z" (:full-seen @player)] (aget ^"[Z" blank-seen i))
+                            (reset! dd {:dungeon dd1 :shown shown :res dungeon-res})
+                            (freshen dd p :full))))
+                                 )))
             nil)
           )
         (when (= (aget ^ints (:dungeon @dd) newpos) floor)
@@ -474,7 +526,7 @@
                 dungeon-res (dungeon-resistances dd)
                 shown (last dd0)
                 player-calc  (init-dungeon dd player)
-                monster-calc (last (map #(init-dungeon dd %) @monsters))
+                monster-calc (doall (map #(init-dungeon dd %) @monsters))
                 dun (atom {:dungeon dd :shown shown :res dungeon-res})
                 player-fov-first (swap! player assoc :seen (run-fov-player player dun))
                 ^SGKeyListener kl (SGKeyListener. true SGKeyListener$CaptureType/DOWN)
