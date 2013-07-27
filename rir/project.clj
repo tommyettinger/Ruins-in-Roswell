@@ -7,8 +7,9 @@
   :dependencies [
                  [org.clojure/clojure "1.5.1"]
                  [prismatic/hiphip "0.1.0"]
-                 [seesaw "1.4.1"]]
-  :resource-paths ["lib/"]
+                 [seesaw "1.4.1"]
+                 [com.squidpony/squidlib "1.95"]]
+;  :resource-paths ["lib/"]
  ; :jvm-opts ^:replace []
  ; :aot [dijkstra.hiphills]
   :main  ^:skip-aot rir.core

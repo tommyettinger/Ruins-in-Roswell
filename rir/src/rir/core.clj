@@ -334,7 +334,7 @@
       (reset! monsters (remove #(= % entity) @monsters)))
      (freshen dd p)))
 
- 
+
 (defn move-monster [mons ^ints dd ^SGPane p]
                              (doseq [mon mons]
                                 (let [oldpos (:pos @mon)]
@@ -395,6 +395,34 @@
           (freshen dd p)
           (doseq [mon @mons] (when (= (:pos @mon) newpos)
                                    (damage-monster mon dd p)))))))
+
+(defn show-dungeon []
+	(invoke-later
+	        (let [dd0 (int-array (map #(if (not= % wall) floor wall) (replace {floor wall} (dijkstra dungeon))))
+                dd-eh (doseq [i (range 3)] (init-dungeon dd0))
+                dd (int-array (dijkstra dd0))
+                p (pane)
+                p-eh (display (border-panel :center (do (.refresh p) p)))
+                worst (apply max (filter (partial not= wall) (vec dd)))
+                freshen2 (fn []
+                                 (doseq [x (range wide) y (range high)]
+                                                 (. p placeCharacter x
+                                                                     y
+                                                                     (if (= (aget dd (+ x (* wide y))) wall) \space (shown-bones (+ x (* wide y))))
+                                                                     SColor/BLACK
+                                                                     (if (= (aget dd (+ x (* wide y))) wall)
+                                                                       SColor/BLACK
+                                                                       (if (= (aget dd (+ x (* wide y))) GOAL)
+                                                                         SColor/ORANGUTAN
+                                                                         (SColorFactory/blend SColor/CREAM SColor/DARK_BLUE_LAPIS_LAZULI (/ (aget dd (+ x (* wide y))) worst))
+                                                                           )))
+                                                      )
+                              (.refresh p)
+                              (config! (acquire [:#entities]) :items (concat [(make-player-label)] (visible-monsters)))
+                              (-> f pack! show! ))
+                ]
+            (freshen2)
+            )))
 
 (defn -main
 	[& args]
