@@ -13,8 +13,8 @@
            [java.io File]))
 (set! *warn-on-reflection* true)
 (native!)
-(def wide 53)
-(def high 53)
+(def wide 52)
+(def high 52)
 (def ^Long iw (- wide 2)) ;inner width
 (def ^Long ih (- high 2)) ;inner height
 
@@ -56,9 +56,85 @@
         initial (horiz seed)
         hvec (map #(map (fn [s] (vec s)) %) horiz)
         vvec (map #(map (fn [s] (vec s)) %) vert)
+        oh (+ 20 ih)
+        ow (+ 20 iw)
+        initial (hiphip/amake [i (* ow oh)] wall)
+        shown (char-array (* ow oh) \#)]
+    (loop [next-fill 0 started-indent 0]
+      (if (>= (+ (* 10 ow ) next-fill) (* ow oh))
+          initial
+          (let [hofull (rand-nth hvec)
+                    ho (vec (map #(replace {\# wall \. floor \$ floor \~ floor \% floor \+ floor} %) hofull))]
+            (when (< (+ (* 10 ow) 20 next-fill) (* ow oh))
+                (doseq [nf (range 10)] ;(println "next-fill in horiz section: " next-fill)
+                                         (hiphip/afill! [[i eh] initial :range [(+ (* ow nf) next-fill) (+ 20 (* ow nf) next-fill)]]
+                                                                  (do (nth (nth ho nf) (- i (* ow nf) next-fill))))
+                                       (harray/afill! Character/TYPE [[i eh] shown :range [(+ (* ow nf) next-fill) (+ 20 (* ow nf) next-fill)]]
+                                                                  (nth (nth hofull nf) (- i (* ow nf) next-fill)))))
+                (recur
+                 (long
+                   (if (< (mod (+ 40 next-fill) ow) (mod next-fill ow))
+                     (condp = started-indent
+                       0 (+ (* ow 10) 10 (- next-fill (mod next-fill ow )))
+                       1 (+ (* ow 10) 20 (- next-fill (mod next-fill ow )))
+                       2 (+ (* ow 10) 30 (- next-fill (mod next-fill ow )))
+                       3 (+ (* ow 10)  0 (- next-fill (mod next-fill ow )))
+                       )
+                     (+ 40 next-fill) ) )
+                 (long (if (< (mod (+ 40 next-fill) ow) (mod next-fill ow))
+                   (mod (inc started-indent) 4)
+                   started-indent))
+                 ))))
+    (loop [next-fill (* 10 ow) started-indent 1]
+      (if (>= (+ 10 (mod next-fill ow)) ow)
+          initial
+        (let [vefull (rand-nth vvec)
+                    ve (vec (map #(replace {\# wall \. floor \$ floor \~ floor \% floor \+ floor} %) vefull))]
+                (when (< (+ (* 20 ow) 10 next-fill) (* ow oh))
+                  (doseq [nf (range 20)] (hiphip/afill! [[i eh] initial :range [(+ (* ow nf) next-fill) (+ 10 (* ow nf) next-fill)]]
+                                                                  (nth (nth ve nf) (- i (* ow nf) next-fill)))
+                      (harray/afill! Character/TYPE [[i eh] shown :range [(+ (* ow nf) next-fill) (+ 10 (* ow nf) next-fill)]]
+                                                                  (nth (nth vefull nf) (- i (* ow nf) next-fill)))))
+                (recur
+                 (long
+                   (if (< (mod (quot (+ (* 40 ow) next-fill) ow) oh) (quot next-fill ow))
+                     (condp = started-indent
+                       0 (+ (* ow 10) 10 (mod next-fill ow))
+                       1 (+ (* ow 20) 10 (mod next-fill ow))
+                       2 (+ (* ow 30) 10 (mod next-fill ow))
+                       3 (+           10 (mod next-fill ow))
+                       )
+                     (+ (* 40 ow) next-fill) ) )
+                 (long (if (< (mod (quot (+ (* 40 ow) next-fill) ow) oh) (quot next-fill ow))
+                   (mod (inc started-indent) 4)
+                   started-indent))
+                 ))))
+    ;(doall (map #(println (apply str %)) (partition ow (vec shown))))
+    [(hiphip/amake [i (* wide high)] (if (or
+			(= (mod i wide) 0)
+			(= (mod i wide) (dec wide))
+			(< i wide)
+			(> i (- (* wide high) wide)))
+		 wall
+		 (hiphip/aget initial (+ (* 10 ow) -10 (* 20 (quot i wide)) (- i (dec wide) (* 2 (quot i wide)))))))
+
+     (harray/amake Character/TYPE [i (* wide high)] (if (or
+			(= (mod i wide) 0)
+			(= (mod i wide) (dec wide))
+			(< i wide)
+			(> i (- (* wide high) wide)))
+		 \#
+		 (aget shown (+ (* 10 ow) -10 (* 20 (quot i wide)) (- i (dec wide) (* 2 (quot i wide)))))))
+                                       ]))
+
+(defn ^ints make-bones-original []
+  (let [seed (rand-int (count horiz))
+        initial (horiz seed)
+        hvec (map #(map (fn [s] (vec s)) %) horiz)
+        vvec (map #(map (fn [s] (vec s)) %) vert)
         initial (hiphip/amake [i (* iw ih)] wall)
         shown (char-array (* iw ih) \#)]
-    (loop [counter 0 horiz true starting-horiz true next-fill 0]
+    (loop [horiz true starting-horiz true next-fill 0]
       (if (>= (+ (* 20 iw ) next-fill) (* iw ih))
           initial
           (if horiz
@@ -69,9 +145,6 @@
                                        (harray/afill! Character/TYPE [[i eh] shown :range [(+ (* iw nf) next-fill) (+ 20 (* iw nf) next-fill)]]
                                                                   (nth (nth hofull nf) (- i (* iw nf) next-fill))))
                 (recur
-                 (if (< (mod (+ counter next-fill) iw) next-fill)
-                   (+ 10 counter)
-                   counter)
                  (if (< (mod (+ 30 next-fill) iw) (mod next-fill iw))
                    (not starting-horiz)
                    (not horiz))
@@ -92,9 +165,6 @@
                   (harray/afill! Character/TYPE [[i eh] shown :range [(+ (* iw nf) next-fill) (+ 10 (* iw nf) next-fill)]]
                                                                   (nth (nth vefull nf) (- i (* iw nf) next-fill))))
                 (recur
-                 (if (< (mod (+ 10 next-fill) iw) next-fill)
-                   (+ 30 counter)
-                   counter)
                  (if (< (mod (+ 10 next-fill) iw) (mod next-fill iw))
                    (not starting-horiz)
                    (not horiz))
@@ -496,7 +566,7 @@
                 dd (int-array (dijkstra dd1))
                 p (pane)
                 p-eh (display (border-panel :center (do (.refresh p) p)))
-                worst (apply max (filter (partial not= wall) (vec dd)))
+                worst (apply max (filter (partial > wall) (vec dd)))
                 freshen2 (fn []
                                  (doseq [x (range wide) y (range high)]
                                                  (. p placeCharacter x
@@ -507,6 +577,7 @@
                                                                        SColor/BLACK
                                                                        (if (= (aget dd (+ x (* wide y))) GOAL)
                                                                          SColor/ORANGUTAN
+                                                                         ;SColor/CREAM
                                                                          (SColorFactory/blend SColor/CREAM SColor/DARK_BLUE_LAPIS_LAZULI (/ (aget dd (+ x (* wide y))) worst))
                                                                            )))
                                                       )
@@ -547,4 +618,7 @@
                            :delay 50)
                 ]
             (freshen dun p)
-            )))
+            ))
+
+  ;(show-dungeon)
+  )
