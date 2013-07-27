@@ -90,22 +90,23 @@
           initial
         (let [vefull (rand-nth vvec)
                     ve (vec (map #(replace {\# wall \. floor \$ floor \~ floor \% floor \+ floor} %) vefull))]
-                (when (< (+ (* 20 ow) 10 next-fill) (* ow oh))
+                (when (< (+ (* 19 ow) 10 next-fill) (* ow oh))
                   (doseq [nf (range 20)] (hiphip/afill! [[i eh] initial :range [(+ (* ow nf) next-fill) (+ 10 (* ow nf) next-fill)]]
                                                                   (nth (nth ve nf) (- i (* ow nf) next-fill)))
                       (harray/afill! Character/TYPE [[i eh] shown :range [(+ (* ow nf) next-fill) (+ 10 (* ow nf) next-fill)]]
                                                                   (nth (nth vefull nf) (- i (* ow nf) next-fill)))))
                 (recur
                  (long
-                   (if (< (mod (quot (+ (* 40 ow) next-fill) ow) oh) (quot next-fill ow))
+                   (if (< (mod (+ 40 (quot next-fill ow)) oh) (quot next-fill ow))
                      (condp = started-indent
                        0 (+ (* ow 10) 10 (mod next-fill ow))
                        1 (+ (* ow 20) 10 (mod next-fill ow))
                        2 (+ (* ow 30) 10 (mod next-fill ow))
                        3 (+           10 (mod next-fill ow))
                        )
-                     (+ (* 40 ow) next-fill) ) )
-                 (long (if (< (mod (quot (+ (* 40 ow) next-fill) ow) oh) (quot next-fill ow))
+;                     (do (println "second block in vert")
+                       (+ (* 40 ow) next-fill) ) )
+                 (long (if (< (mod (+ 40 (quot next-fill ow)) oh) (quot next-fill ow))
                    (mod (inc started-indent) 4)
                    started-indent))
                  ))))
@@ -591,7 +592,7 @@
 
 (defn -main
 	[& args]
-	(invoke-later
+  	(invoke-later
 	        (let [dd0 (prepare-bones)
                 dd (first dd0)
                 dungeon-res (dungeon-resistances dd)
