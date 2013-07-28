@@ -66,7 +66,7 @@
           (let [hofull (rand-nth hvec)
                     ho (vec (map #(replace {\# wall \. floor \$ floor \~ floor \% floor \+ floor} %) hofull))]
             (when (< (+ (* 10 ow) 20 next-fill) (* ow oh))
-                (doseq [nf (range 10)] ;(println "next-fill in horiz section: " next-fill)
+                (doseq [nf (range 10)]
                                          (hiphip/afill! [[i eh] initial :range [(+ (* ow nf) next-fill) (+ 20 (* ow nf) next-fill)]]
                                                                   (do (nth (nth ho nf) (- i (* ow nf) next-fill))))
                                        (harray/afill! Character/TYPE [[i eh] shown :range [(+ (* ow nf) next-fill) (+ 20 (* ow nf) next-fill)]]
@@ -104,7 +104,6 @@
                        2 (+ (* ow 30) 10 (mod next-fill ow))
                        3 (+           10 (mod next-fill ow))
                        )
-;                     (do (println "second block in vert")
                        (+ (* 40 ow) next-fill) ) )
                  (long (if (< (mod (+ 40 (quot next-fill ow)) oh) (quot next-fill ow))
                    (mod (inc started-indent) 4)
@@ -356,7 +355,7 @@
     			        (if (or (closed e) (@open e) (>= (inc v) (hiphip/aget a e))) nil (do (hiphip/aset a e (inc v)) (swap! newly-open assoc e (inc v))))
      	     	     	     )))
      	     (reset! open @newly-open)))
-       (vec a)
+       a
        ))
 
 (defn prepare-bones []
@@ -364,20 +363,20 @@
                dungeon (first dungeon-z)
                dngn-eh (init-dungeon dungeon)]
                       (loop [
-                          start (int-array (map #(if (< % wall) floor %) (replace {floor wall} (dijkstra dungeon))))
-                          worst (apply max (filter (partial > wall) (dijkstra (hiphip/aclone start))))
+                          start (int-array (map #(if (< % wall) floor %) (replace {floor wall} (vec (dijkstra dungeon)))))
+                          worst (apply max (filter (partial > wall) (vec (dijkstra (hiphip/aclone start)))))
                           shown (last dungeon-z)]
                         (if (> worst (/ (+ wide high) 4))
 
                             [(int-array (map-indexed #(if (= %2 GOAL)
                                                                        (do (aset ^chars shown %1 \<) 10001)
                                                                        (if (< %2 wall) floor %2))
-                                                                    (alter-dungeon (int-array (dijkstra (init-dungeon start))) shown 10002 \> #(and (> % (/ (+ wide high) 4)) (< % floor)))))
+                                                                    (alter-dungeon (dijkstra (init-dungeon start)) shown 10002 \> #(and (> % (/ (+ wide high) 4)) (< % floor)))))
                                                                 shown]
                                     (let [d0 (make-bones)
-                                          d2 (int-array (map #(if (< % wall) floor %) (replace {floor wall} (dijkstra (first d0)))))
+                                          d2 (int-array (map #(if (< % wall) floor %) (replace {floor wall} (vec (dijkstra (first d0))))))
                                           d2-eh (init-dungeon d2)
-                                          w2 (apply max (filter (partial > wall) (dijkstra (hiphip/aclone d2))))]
+                                          w2 (apply max (filter (partial > wall) (vec (dijkstra (hiphip/aclone d2)))))]
                                       (recur d2 w2 (last d0)))))))
 
 (defn freshen [dd ^SGPane p & args]
@@ -469,7 +468,7 @@
                                                                     (+ orig-pos 1)])
                                                           lowest (reduce #(if (and
                                                                                (apply distinct? (concat (map (fn [atm] (:pos @atm)) mons) [%2 (:pos @player)]))
-                                                                               (< ((:dijkstra @mon) %2) ((:dijkstra @mon) %1)))
+                                                                               (< (aget ^ints (:dijkstra @mon) %2) (aget ^ints (:dijkstra @mon) %1)))
                                                                             %2
                                                                             %1)
                                                                          orig-pos
@@ -564,7 +563,7 @@
                 shown-bones (last dd0)
                 ;dd0 (int-array (map #(if (not= % wall) floor wall) (replace {floor wall} (dijkstra dungeon))))
                 dd-eh (doseq [i (range 3)] (init-dungeon dd1))
-                dd (int-array (dijkstra dd1))
+                ^ints dd (dijkstra dd1)
                 p (pane)
                 p-eh (display (border-panel :center (do (.refresh p) p)))
                 worst (apply max (filter (partial > wall) (vec dd)))
@@ -592,7 +591,8 @@
 
 (defn -main
 	[& args]
-  	(invoke-later
+ ; (comment "Remove these semicolons to view a dungeon when you run"
+  (invoke-later
 	        (let [dd0 (prepare-bones)
                 dd (first dd0)
                 dungeon-res (dungeon-resistances dd)
@@ -620,6 +620,6 @@
                 ]
             (freshen dun p)
             ))
-
-  ;(show-dungeon)
+;  )
+;  (show-dungeon)
   )
