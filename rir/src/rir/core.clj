@@ -10,7 +10,8 @@
            [squidpony.squidgrid.gui.swing SwingPane]
            [java.awt Font Component Point]
            [java.awt.event KeyListener KeyEvent]
-           [java.io File]))
+           [java.io File])
+  (:gen-class))
 (set! *warn-on-reflection* true)
 (native!)
 (def wide 52)
