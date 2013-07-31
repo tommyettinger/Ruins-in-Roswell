@@ -19,20 +19,20 @@
 ; Armor    Endurance   Finesse     Quickness   Senses   Knowledge   Brawn    Finesse     Brawn     Brawn     Finesse     Deception   Finesse     Tenacity    Finesse       Tenacity
 ; Block    Counter     Disarm      Trip        Aim      Guide       Pin      Bounce      Grab      Push      Pull        Distract    Bonk        Threat      Distant Bonk  Distant Threat
 (def maneuvers {
-:block {:maneuver "Block" :stat :armor}
-:counter {:maneuver "Counter" :stat :endurance}
-:disarm {:maneuver "Disarm" :stat :finesse}
-:trip {:maneuver "Trip" :stat :quickness}
-:aim {:maneuver "Aim" :stat :senses}
-:guide {:maneuver "Guide" :stat :knowledge}
-:pin {:maneuver "Pin" :stat :brawn}
-:bounce {:maneuver "Bounce" :stat :finesse}
-:grab {:maneuver "Grab" :stat :brawn}
-:push {:maneuver "Push" :stat :brawn}
-:pull {:maneuver "Pull" :stat :finesse}
-:distract {:maneuver "Distract" :stat :deception}
-:bonk {:maneuver "Bonk" :stat :finesse}
-:threat {:maneuver "Threat" :stat :tenacity}
-:distant-bonk {:maneuver "Distant Bonk" :stat :finesse}
-:distant-threat {:maneuver "Distant Threat" :stat :tenacity}
+:block {:maneuver "Block" :stat :armor :trigger :guard :hit-calc (fn [user enemy] (> (+ (get-in user [:stats :armor]) 2 (rand-int 6) (rand-int 6)) (+ 7 (get-in enemy [:stats :finesse])))) }
+:counter {:maneuver "Counter" :stat :endurance :trigger :guard :hit-calc (fn [user enemy] (> (+ (get-in user [:stats :endurance]) 2 (rand-int 6) (rand-int 6)) (+ 9 (get-in enemy [:stats :quickness]))))}
+:disarm {:maneuver "Disarm" :stat :finesse :trigger :major :hit-calc (fn [user enemy] (> (+ (get-in user [:stats :finesse]) 2 (rand-int 6) (rand-int 6)) (+ 9 (get-in enemy [:stats :armor]))))}
+:trip {:maneuver "Trip" :stat :quickness :trigger :major :hit-calc (fn [user enemy] (> (+ (get-in user [:stats :quickness]) 2 (rand-int 6) (rand-int 6)) (+ 7 (get-in enemy [:stats :finesse]))))}
+:aim {:maneuver "Aim" :stat :senses :trigger :minor :hit-calc (fn [user enemy] (> (+ (get-in user [:stats :senses]) 2 (rand-int 6) (rand-int 6)) (+ 5 (get-in enemy [:stats :deception]))))}
+:guide {:maneuver "Guide" :stat :knowledge :trigger :minor :hit-calc (fn [user enemy] (> (+ (get-in user [:stats :knowledge]) 2 (rand-int 6) (rand-int 6)) (+ 7 (get-in enemy [:stats :finesse]))))}
+:pin {:maneuver "Pin" :stat :brawn :trigger :attack}
+:bounce {:maneuver "Bounce" :stat :finesse :trigger :attack}
+:grab {:maneuver "Grab" :stat :brawn :trigger :major}
+:push {:maneuver "Push" :stat :brawn :trigger :minor}
+:pull {:maneuver "Pull" :stat :finesse :trigger :minor}
+:distract {:maneuver "Distract" :stat :deception :trigger :major}
+:bonk {:maneuver "Bonk" :stat :finesse :trigger :major}
+:threat {:maneuver "Threat" :stat :tenacity :trigger :major}
+:distant-bonk {:maneuver "Distant Bonk" :stat :finesse :trigger :major}
+:distant-threat {:maneuver "Distant Threat" :stat :tenacity :trigger :major}
 })

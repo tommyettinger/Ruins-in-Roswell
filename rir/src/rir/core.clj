@@ -1,7 +1,7 @@
 (ns rir.core
   (:use seesaw.core
         rir.herringbone)
-	(:require [hiphip.int :as hiphip]
+	(:require [hiphip.double :as hiphip]
             [hiphip.array :as harray])
   (:import [squidpony.squidcolor SColor SColorFactory]
            [squidpony.squidgrid.gui SGPane]
@@ -19,9 +19,9 @@
 (def ^Long iw (- wide 2)) ;inner width
 (def ^Long ih (- high 2)) ;inner height
 
-(def wall 9999)
-(def floor 2000)
-(def ^Integer GOAL 0)
+(def wall 9999.0)
+(def floor 2000.0)
+(def ^Double GOAL 0.0)
 
 (def cleared-levels (atom {}))
 (def dlevel (atom 0))
@@ -52,7 +52,7 @@
 
 (defn stats-pane [] (vertical-panel :id :entities :items (concat [(make-player-label)] (visible-monsters))))
 
-(defn ^ints make-bones []
+(defn ^doubles make-bones []
   (let [seed (rand-int (count horiz))
         initial (horiz seed)
         hvec (map #(map (fn [s] (vec s)) %) horiz)
@@ -128,7 +128,7 @@
 		 (aget shown (+ (* 10 ow) -10 (* 20 (quot i wide)) (- i (dec wide) (* 2 (quot i wide)))))))
                                        ]))
 
-(defn ^ints make-bones-original []
+(defn ^doubles make-bones-original []
   (let [seed (rand-int (count horiz))
         initial (horiz seed)
         hvec (map #(map (fn [s] (vec s)) %) horiz)
@@ -259,7 +259,7 @@
 		 (aget shown (- i (dec wide) (* 2 (quot i wide))))))
                                        ]))
 
-(defn ^"[[F" dungeon-resistances [^ints dungeon]
+(defn ^"[[F" dungeon-resistances [^doubles dungeon]
                  (let [res2d (make-array Float/TYPE wide high)]
                    (doseq [x (range wide) y (range high)]
                      (aset res2d x y (if
@@ -308,8 +308,8 @@
                                                     (if (= (hiphip/aget dngn rand-loc) floor)
 			                                                        (recur (do (hiphip/aset dngn rand-loc cell) (inc ctr))) (recur ctr))))))
   ([dngn shown cell shown-cell filt] (loop [ctr 0] (if (>= ctr  1) dngn (let [rand-loc (rand-int (* iw ih))]
-                                                         (if (filt (hiphip/aget ^ints dngn rand-loc))
-			                                                        (recur (do (aset ^chars shown ^int rand-loc ^char shown-cell) (hiphip/aset ^ints dngn rand-loc cell) (inc ctr))) (recur ctr)))))))
+                                                         (if (filt (hiphip/aget ^doubles dngn rand-loc))
+			                                                        (recur (do (aset ^chars shown ^int rand-loc ^char shown-cell) (hiphip/aset ^doubles dngn rand-loc cell) (inc ctr))) (recur ctr)))))))
 
 (defn find-cells [a cell-kind]
   (let [dngn (vec a)]
@@ -364,18 +364,18 @@
                dungeon (first dungeon-z)
                dngn-eh (init-dungeon dungeon)]
                       (loop [
-                          start (int-array (map #(if (< % wall) floor %) (replace {floor wall} (vec (dijkstra dungeon)))))
+                          start (double-array (map #(if (< % wall) floor %) (replace {floor wall} (vec (dijkstra dungeon)))))
                           worst (apply max (filter (partial > wall) (vec (dijkstra (hiphip/aclone start)))))
                           shown (last dungeon-z)]
                         (if (> worst (/ (+ wide high) 4))
 
-                            [(int-array (map-indexed #(if (= %2 GOAL)
-                                                                       (do (aset ^chars shown %1 \<) 10001)
+                            [(double-array (map-indexed #(if (= %2 GOAL)
+                                                                       (do (aset ^chars shown %1 \<) 10001.0)
                                                                        (if (< %2 wall) floor %2))
-                                                                    (alter-dungeon (dijkstra (init-dungeon start)) shown 10002 \> #(and (> % (/ (+ wide high) 4)) (< % floor)))))
+                                                                    (alter-dungeon (dijkstra (init-dungeon start)) shown 10002.0 \> #(and (> % (/ (+ wide high) 4)) (< % floor)))))
                                                                 shown]
                                     (let [d0 (make-bones)
-                                          d2 (int-array (map #(if (< % wall) floor %) (replace {floor wall} (vec (dijkstra (first d0))))))
+                                          d2 (double-array (map #(if (< % wall) floor %) (replace {floor wall} (vec (dijkstra (first d0))))))
                                           d2-eh (init-dungeon d2)
                                           w2 (apply max (filter (partial > wall) (vec (dijkstra (hiphip/aclone d2)))))]
                                       (recur d2 w2 (last d0)))))))
@@ -383,8 +383,6 @@
 (defn freshen [dd ^SGPane p & args]
   (let [player-fov-new (swap! player assoc :seen (run-fov-player player dd))
                                      ]
-                                 (doseq [monster @monsters] (let [monster-fov-new (run-fov monster dd)] (when (> (aget monster-fov-new (mod (:pos @player) wide) (quot (:pos @player) wide)) 0)
-                                      (do (swap! monster assoc :dijkstra (let [new-d (hiphip/aclone ^ints (:dungeon @dd))] (aset new-d (int (:pos @player)) GOAL) (dijkstra new-d)))))))
                                  (doseq [x (range wide) y (range high)]
                                                  (when
                                                    (or args
@@ -394,9 +392,9 @@
                                                            (>= (- (quot (:pos @player) wide) y) -16)))
                                                    (. p placeCharacter x
                                                                      y
-                                                                     (if (= (aget ^ints (:dungeon @dd) (+ x (* wide y))) wall) \# (aget ^chars (:shown @dd) (+ x (* wide y))))
+                                                                     (if (= (aget ^doubles (:dungeon @dd) (+ x (* wide y))) wall) \# (aget ^chars (:shown @dd) (+ x (* wide y))))
                                                                      SColor/BLACK
-                                                                     (if (= (aget ^ints (:dungeon @dd) (+ x (* wide y))) wall)
+                                                                     (if (= (aget ^doubles (:dungeon @dd) (+ x (* wide y))) wall)
                                                                        (if
                                                                          (> (aget (:seen @player) x y) 0)
                                                                          (SColorFactory/blend SColor/BLACK SColor/CYPRESS_BARK_RED (aget (:seen @player) x y))
@@ -447,6 +445,21 @@
 
 
 (defn move-monster [mons dd ^SGPane p]
+  (let [flee-map (let [first-d (hiphip/aclone ^doubles (:dungeon @dd))
+                                                     d-eh (aset first-d (int (:pos @player)) GOAL)
+                                                     new-d (hiphip/amap [x (dijkstra first-d)]
+                                                                        (if (>= x wall) x
+                                                                          (* -1.3 x)
+                                                                          )
+                                                                        )]  (dijkstra new-d))]
+                             (doseq [monster mons]
+                               (let [monster-fov-new (run-fov monster dd)]
+                                 (if (> (:hp @monster) 4)
+                                   (when (> (aget monster-fov-new (mod (:pos @player) wide) (quot (:pos @player) wide)) 0)
+                                     (do (swap! monster assoc :dijkstra
+                                               (let [new-d (hiphip/aclone ^doubles (:dungeon @dd))] (aset new-d (int (:pos @player)) GOAL) (dijkstra new-d)))))
+                                   (when (> (aget monster-fov-new (mod (:pos @player) wide) (quot (:pos @player) wide)) 0)
+                                     (do (swap! monster assoc :dijkstra flee-map))))))
                              (doseq [mon mons]
                                 (let [oldpos (:pos @mon)]
                                   (when (<= (aget (:seen @player) (mod (:pos @mon) wide) (quot (:pos @mon) wide)) 0)
@@ -469,7 +482,7 @@
                                                                     (+ orig-pos 1)])
                                                           lowest (reduce #(if (and
                                                                                (apply distinct? (concat (map (fn [atm] (:pos @atm)) mons) [%2 (:pos @player)]))
-                                                                               (< (aget ^ints (:dijkstra @mon) %2) (aget ^ints (:dijkstra @mon) %1)))
+                                                                               (< (aget ^doubles (:dijkstra @mon) %2) (aget ^doubles (:dijkstra @mon) %1)))
                                                                             %2
                                                                             %1)
                                                                          orig-pos
@@ -483,26 +496,26 @@
 
                                  ((rand-nth [
                                           #(when (and (apply distinct? (concat (map (fn [atm] (:pos @atm)) mons) [(- (:pos @%) wide) (:pos @player)]))
-                                                      (= (aget ^ints (:dungeon @dd) (- (:pos @%) wide)) floor)) (swap! % assoc :pos (- (:pos @%) wide)))
+                                                      (= (aget ^doubles (:dungeon @dd) (- (:pos @%) wide)) floor)) (swap! % assoc :pos (- (:pos @%) wide)))
                                           #(when (and (apply distinct? (concat (map (fn [atm] (:pos @atm)) mons) [(+ (:pos @%) wide) (:pos @player)]))
-                                                      (= (aget ^ints (:dungeon @dd) (+ (:pos @%) wide)) floor)) (swap! % assoc :pos (+ (:pos @%) wide)))
+                                                      (= (aget ^doubles (:dungeon @dd) (+ (:pos @%) wide)) floor)) (swap! % assoc :pos (+ (:pos @%) wide)))
                                           #(when (and (apply distinct? (concat (map (fn [atm] (:pos @atm)) mons) [(- (:pos @%) 1) (:pos @player)]))
-                                                      (= (aget ^ints (:dungeon @dd) (- (:pos @%) 1)) floor)) (swap! % assoc :pos (- (:pos @%) 1)))
+                                                      (= (aget ^doubles (:dungeon @dd) (- (:pos @%) 1)) floor)) (swap! % assoc :pos (- (:pos @%) 1)))
                                           #(when (and (apply distinct? (concat (map (fn [atm] (:pos @atm)) mons) [(+ (:pos @%) 1) (:pos @player)]))
-                                                      (= (aget ^ints (:dungeon @dd) (+ (:pos @%) 1)) floor)) (swap! % assoc :pos (+ (:pos @%) 1)))]
-                                            ) mon)))))
+                                                      (= (aget ^doubles (:dungeon @dd) (+ (:pos @%) 1)) floor)) (swap! % assoc :pos (+ (:pos @%) 1)))]
+                                            ) mon))))))
 
 (defn move-player [pc mons dd ^SGPane p newpos]
   (do (if
         (and (apply distinct? (conj (map (fn [atm] (:pos @atm)) @mons) newpos))
-             (or (= (aget ^ints (:dungeon @dd) newpos) floor) (= (aget ^ints (:dungeon @dd) newpos) 10001) (= (aget ^ints (:dungeon @dd) newpos) 10002)))
+             (or (= (aget ^doubles (:dungeon @dd) newpos) floor) (= (aget ^doubles (:dungeon @dd) newpos) 10001.0) (= (aget ^doubles (:dungeon @dd) newpos) 10002.0)))
         (do
           (swap! pc assoc :pos newpos)
-          (condp = (aget ^ints (:dungeon @dd) newpos)
+          (condp = (aget ^doubles (:dungeon @dd) newpos)
             floor (do
                     (move-monster @mons dd p)
                     (freshen dd p))
-            10001 (show! (pack! (if (= @dlevel 0)
+            10001.0 (show! (pack! (if (= @dlevel 0)
                                   (dialog
             :content (str "YOU ESCAPED.  You explored " (count (filter true? (vec (:full-seen @player)))) " squares.")
             :success-fn (fn [jop] (System/exit 0)))
@@ -515,13 +528,13 @@
                                 dd1 (:dungeon (get @cleared-levels @dlevel))
                                 dungeon-res (:res (get @cleared-levels @dlevel))
                                 shown (:shown (get @cleared-levels @dlevel))
-                                player-calc  (init-dungeon dd1 player 10002)
-                                monster-calc (doall (map #(init-dungeon dd1 %) @monsters))]
+                                player-calc  (init-dungeon dd1 player 10002.0)
+                                monster-calc (doall (map #(do (init-dungeon dd1 %) (swap! % assoc :dijkstra nil)) @monsters))]
                             (harray/afill! boolean [[i x] ^"[Z" (:full-seen @player)] (aget ^"[Z" (:full-seen (get @cleared-levels ^int @dlevel)) i))
                             (reset! dd {:dungeon dd1 :shown shown :res dungeon-res})
                             (freshen dd p :full))))
                                   )))
-            10002 (show! (pack! (dialog
+            10002.0 (show! (pack! (dialog
             :content (str "YOU DESCEND FURTHER INTO THE DEPTHS...  You explored " (count (filter true? (vec (:full-seen @player)))) " squares.")
             :success-fn (fn [jop]
                           (swap! cleared-levels assoc @dlevel (assoc @dd :full-seen (aclone ^"[Z" (:full-seen @player))))
@@ -531,8 +544,8 @@
                                 dd1 (:dungeon (get @cleared-levels @dlevel))
                                 dungeon-res (:res (get @cleared-levels @dlevel))
                                 shown (:shown (get @cleared-levels @dlevel))
-                                player-calc  (init-dungeon dd1 player 10001)
-                                monster-calc (doall (map #(init-dungeon dd1 %) @monsters))]
+                                player-calc  (init-dungeon dd1 player 10001.0)
+                                monster-calc (doall (map #(do (init-dungeon dd1 %) (swap! % assoc :dijkstra nil)) @monsters))]
                               (harray/afill! Boolean/TYPE [[i x] ^"[Z" (:full-seen @player)] (aget ^"[Z" (:full-seen (get @cleared-levels ^int @dlevel)) i))
                               (reset! dd {:dungeon dd1 :shown shown :res dungeon-res})
                               (freshen dd p :full))
@@ -541,16 +554,16 @@
                                 dd1 (first dd0)
                                 dungeon-res (dungeon-resistances dd1)
                                 shown (last dd0)
-                                player-calc  (init-dungeon dd1 player 10001)
+                                player-calc  (init-dungeon dd1 player 10001.0)
                                 monster-calc (doall (map #(init-dungeon dd1 %) @monsters))
                                 blank-seen (init-full-seen)]
                             (harray/afill! Boolean/TYPE [[i x] ^"[Z" (:full-seen @player)] (aget ^"[Z" blank-seen i))
                             (reset! dd {:dungeon dd1 :shown shown :res dungeon-res})
                             (freshen dd p :full))))
                                  )))
-            nil)
+            (println "Something's wrong."))
           )
-        (when (= (aget ^ints (:dungeon @dd) newpos) floor)
+        (when (= (aget ^doubles (:dungeon @dd) newpos) floor)
           (move-monster @mons dd p)
           (freshen dd p)
           (doseq [mon @mons] (when (= (:pos @mon) newpos)
@@ -562,9 +575,9 @@
 	        (let [dd0 (prepare-bones)
                 dd1 (first dd0)
                 shown-bones (last dd0)
-                ;dd0 (int-array (map #(if (not= % wall) floor wall) (replace {floor wall} (dijkstra dungeon))))
+                ;dd0 (double-array (map #(if (not= % wall) floor wall) (replace {floor wall} (dijkstra dungeon))))
                 dd-eh (doseq [i (range 3)] (init-dungeon dd1))
-                ^ints dd (dijkstra dd1)
+                ^doubles dd (dijkstra dd1)
                 p (pane)
                 p-eh (display (border-panel :center (do (.refresh p) p)))
                 worst (apply max (filter (partial > wall) (vec dd)))
