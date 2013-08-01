@@ -432,8 +432,13 @@
     (if (<= (:hp @player) 0)
       (do
         (doseq [^KeyListener kl (vec (.getKeyListeners ^Component f))] (.removeKeyListener ^Component f kl))
+        (freshen dd p)
         (show! (pack! (dialog
-            :content (str "GAME OVER.  You explored " (count (filter true? (vec (:full-seen @player)))) " squares and reached floor " (inc @dlevel) ".")
+            :content (str "GAME OVER.  You explored "
+                          (count (filter true?
+                                         (vec (concat (flatten (map #(vec (:full-seen (val %))) (dissoc @cleared-levels @dlevel))) (vec (:full-seen @player))))))
+                          " squares and reached floor " (inc @dlevel) "."
+                          )
             :success-fn (fn [jop] (System/exit 0))))))
       (freshen dd p))))
 
@@ -448,13 +453,14 @@
   (let [flee-map (let [first-d (hiphip/aclone ^doubles (:dungeon @dd))
                                                      d-eh (aset first-d (int (:pos @player)) GOAL)
                                                      new-d (hiphip/amap [x (dijkstra first-d)]
-                                                                        (if (>= x wall) x
-                                                                          (* -1.3 x)
-                                                                          )
-                                                                        )]  (dijkstra new-d))]
+                                                                        (if (>= x wall)
+                                                                          x
+                                                                          (* -1.7 x)
+                                                                          ))]
+                   (dijkstra new-d))]
                              (doseq [monster mons]
                                (let [monster-fov-new (run-fov monster dd)]
-                                 (if (> (:hp @monster) 4)
+                                 (if (> (:hp @monster) 2)
                                    (when (> (aget monster-fov-new (mod (:pos @player) wide) (quot (:pos @player) wide)) 0)
                                      (do (swap! monster assoc :dijkstra
                                                (let [new-d (hiphip/aclone ^doubles (:dungeon @dd))] (aset new-d (int (:pos @player)) GOAL) (dijkstra new-d)))))
@@ -517,10 +523,16 @@
                     (freshen dd p))
             10001.0 (show! (pack! (if (= @dlevel 0)
                                   (dialog
-            :content (str "YOU ESCAPED.  You explored " (count (filter true? (vec (:full-seen @player)))) " squares.")
+            :content (str "YOU ESCAPED.  You explored "
+                          (count (filter true?
+                                         (vec (concat (flatten (map #(vec (:full-seen (val %))) (dissoc @cleared-levels @dlevel))) (vec (:full-seen @player))))))
+                          " squares.")
             :success-fn (fn [jop] (System/exit 0)))
                                   (dialog
-            :content (str "YOU ASCEND CLOSER TO THE SURFACE...  You explored " (count (filter true? (vec (:full-seen @player)))) " squares.")
+            :content (str "YOU ASCEND TO FLOOR " @dlevel "...  You explored "
+                          (count (filter true?
+                                         (vec (concat (flatten (map #(vec (:full-seen (val %))) (dissoc @cleared-levels @dlevel))) (vec (:full-seen @player))))))
+                           " squares.")
             :success-fn (fn [jop]
                           (swap! cleared-levels assoc @dlevel (assoc @dd :full-seen (aclone ^"[Z" (:full-seen @player))))
                           (swap! dlevel dec)
@@ -535,7 +547,10 @@
                             (freshen dd p :full))))
                                   )))
             10002.0 (show! (pack! (dialog
-            :content (str "YOU DESCEND FURTHER INTO THE DEPTHS...  You explored " (count (filter true? (vec (:full-seen @player)))) " squares.")
+            :content (str "YOU DESCEND TO FLOOR " (+ 2 @dlevel) "...  You explored "
+                          (count (filter true?
+                                         (vec (concat (flatten (map #(vec (:full-seen (val %))) (dissoc @cleared-levels @dlevel))) (vec (:full-seen @player))))))
+                           " squares.")
             :success-fn (fn [jop]
                           (swap! cleared-levels assoc @dlevel (assoc @dd :full-seen (aclone ^"[Z" (:full-seen @player))))
                           (swap! dlevel inc)
@@ -564,10 +579,11 @@
             (println "Something's wrong."))
           )
         (when (= (aget ^doubles (:dungeon @dd) newpos) floor)
-          (move-monster @mons dd p)
-          (freshen dd p)
+
           (doseq [mon @mons] (when (= (:pos @mon) newpos)
-                                   (damage-monster mon dd p)))))))
+                                   (damage-monster mon dd p)))
+          (move-monster @mons dd p)
+          (freshen dd p)))))
 
 
 (defn show-dungeon []
@@ -599,13 +615,15 @@
                               (config! (acquire [:#entities]) :items (concat [(make-player-label)] (visible-monsters)))
                               (-> f pack! show! ))
                 ]
+            (doseq [row (partition wide (vec shown-bones))]
+              (println (apply str (map #(if (= % \#) \# \.) row))))
             (freshen2)
             )))
 
 
 (defn -main
 	[& args]
- ; (comment "Remove these semicolons to view a dungeon when you run"
+;  (comment ;"Remove these semicolons to view a dungeon when you run"
   (invoke-later
 	        (let [dd0 (prepare-bones)
                 dd (first dd0)
