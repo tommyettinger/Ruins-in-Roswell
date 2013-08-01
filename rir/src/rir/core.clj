@@ -48,7 +48,9 @@
 
 (defn acquire [kw] (select (to-root f) kw))
 
-(defn ^SGPane pane [] (SwingPane. wide high (.deriveFont (Font/createFont Font/TRUETYPE_FONT (File. "zodiac_square.ttf")) 8.0)))
+(defn ^SGPane pane [] (SwingPane. wide high (try (let [fnt (File. "zodiac_square.ttf")]
+                                                   (.deriveFont (Font/createFont Font/TRUETYPE_FONT fnt) 8.0))
+                                              (catch Exception e (Font. Font/MONOSPACED Font/BOLD 14.0)))))
 
 (defn stats-pane [] (vertical-panel :id :entities :items (concat [(make-player-label)] (visible-monsters))))
 
