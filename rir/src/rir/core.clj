@@ -15,8 +15,8 @@
   (:gen-class))
 (set! *warn-on-reflection* true)
 (native!)
-(def wide 52)
-(def high 52)
+(def wide 42)
+(def high 42)
 (def ^Long iw (- wide 2)) ;inner width
 (def ^Long ih (- high 2)) ;inner height
 
@@ -31,11 +31,11 @@
                      (aset res1d i false))
                      res1d))
 
-(def player (atom {:pos 0 :show \@ :hp 80 :vision 15 :dijkstra nil :seen nil :full-seen (init-full-seen)}))
+(def player (atom {:pos 0 :show \@ :hp 80 :vision 12 :dijkstra nil :seen nil :full-seen (init-full-seen)}))
 (defn make-player-label [] (label :text (str "AdventureMan. HP " (:hp @player)) :size [150 :by 16]))
 (defn make-welcome-message [] (label :text "Welcome to Ruins in... Something!":size [690 :by 16]))
 (defn make-other-message [script] (label :text script :size [690 :by 16]))
-(def monsters (atom (vec (repeatedly 10 #(atom {:pos 0 :show \M :hp 8 :vision 10 :dijkstra nil})))))
+(def monsters (atom (vec (repeatedly 10 #(atom {:pos 0 :show \M :hp 8 :vision 8 :dijkstra nil})))))
 (def ^TranslucenceWrapperFOV fov (TranslucenceWrapperFOV. ))
 
 (defn visible-monsters [] (filter (complement nil?) (for [mon @monsters] (if (> (aget (:seen @player) (mod (:pos @mon) wide) (quot (:pos @mon) wide)) 0)
@@ -303,7 +303,13 @@
                                                                                                              (map (fn [atm] (if (= (:pos @atm) 0) nil (:pos @atm))) @monsters))
                                                                                                         [rand-loc (:pos @player)]))
                                                                                                  (= (hiphip/aget dngn rand-loc) floor))
-			                                                        (recur (do (swap! entity assoc :pos rand-loc) (inc ctr))) (recur ctr))))))
+			                                                        (recur (do
+                                                                       (swap! entity assoc :pos rand-loc)
+                                                                       ;(when (= \# (aget ^chars shown (:pos @entity)))
+                                                                       ;   (println "Monster intersecting with wall"))
+
+                                                                       (inc ctr)))
+                                                              (recur ctr))))))
   ([dngn entity starting-cell] (loop [ctr 0] (if (>= ctr 1) dngn (let [rand-loc (rand-nth (keep-indexed #(if (= %2 starting-cell) %1) (vec dngn)))]
                                                                    (if (and (apply distinct? (concat (filter (complement nil?)
                                                                                                              (map (fn [atm] (if (= (:pos @atm) 0) nil (:pos @atm))) @monsters))
@@ -386,7 +392,7 @@
                                           d2 (double-array (map #(if (< % wall) floor %) (replace {floor wall} (vec (dijkstra (first d0))))))
                                           d3 (init-dungeon d2)
                                           w2 (apply max (filter (partial > wall) (vec (dijkstra (hiphip/aclone d2)))))]
-                                      (recur d3 w2 (last d0)))))))
+                                      (recur d3 w2 (harray/afill! char [[i x] ^chars (last d0)] (if (= (aget ^doubles d3 i) wall) \# x))))))))
 
 (defn freshen [dd ^SGPane p & args]
   (let [player-fov-new (swap! player assoc :seen (run-fov-player player dd))
@@ -394,10 +400,11 @@
                                  (doseq [x (range wide) y (range high)]
                                                  (when
                                                    (or args
-                                                     (and  (<= (- (mod (:pos @player) wide) x) 16)
-                                                           (>= (- (mod (:pos @player) wide) x) -16)
-                                                           (<= (- (quot (:pos @player) wide) y) 16)
-                                                           (>= (- (quot (:pos @player) wide) y) -16)))
+                                                    (<= (+ (Math/abs ^int (- (mod (:pos @player) wide) x)) (Math/abs ^int (- (quot (:pos @player) wide) y))) 13)
+ ;                                                          (>= (- (mod (:pos @player) wide) x) -16)
+;                                                           (<= (Math/abs ^int (- (quot (:pos @player) wide) y)) 16)
+  ;                                                         (>= (- (quot (:pos @player) wide) y) -16)
+                                                     )
                                                    (. p placeCharacter x
                                                                      y
                                                                      (if (= (aget ^doubles (:dungeon @dd) (+ x (* wide y))) wall) \# (aget ^chars (:shown @dd) (+ x (* wide y))))
@@ -462,7 +469,7 @@
                                                      d-eh (aset first-d (int (:pos @player)) GOAL)
                                                      new-d (hiphip/amap [x (dijkstra first-d)]
                                                                         (if (>= x wall)
-                                                                          x
+                                                                          wall
                                                                           (* -1.7 x)
                                                                           ))]
                    (dijkstra new-d))]
@@ -496,7 +503,8 @@
                                                                     (+ orig-pos 1)])
                                                           lowest (reduce #(if (and
                                                                                (apply distinct? (concat (map (fn [atm] (:pos @atm)) mons) [%2 (:pos @player)]))
-                                                                               (< (aget ^doubles (:dijkstra @mon) %2) (aget ^doubles (:dijkstra @mon) %1)))
+                                                                               (< (aget ^doubles (:dijkstra @mon) %2) (aget ^doubles (:dijkstra @mon) %1))
+                                                                               (= (aget ^doubles (:dungeon @dd) %2) floor))
                                                                             %2
                                                                             %1)
                                                                          orig-pos
@@ -517,7 +525,10 @@
                                                       (= (aget ^doubles (:dungeon @dd) (- (:pos @%) 1)) floor)) (swap! % assoc :pos (- (:pos @%) 1)))
                                           #(when (and (apply distinct? (concat (map (fn [atm] (:pos @atm)) mons) [(+ (:pos @%) 1) (:pos @player)]))
                                                       (= (aget ^doubles (:dungeon @dd) (+ (:pos @%) 1)) floor)) (swap! % assoc :pos (+ (:pos @%) 1)))]
-                                            ) mon))))))
+                                            ) mon)))
+;                               (when (= \# (aget ^chars (:shown @dd) (:pos @mon)))
+;                                 (println "Monster intersecting with wall"))
+                                 )))
 (defn escape-dialog
   [pc mons dd ^SGPane p ^SGKeyListener kl]
   (do
@@ -534,53 +545,7 @@
             :success-fn (fn [jop] (System/exit 0)))]
       (show! (pack! dlg)))
         (catch Exception iae (println "Please, don't press the keys so fast...")))))
-(comment
-(defn descend-dialog
-  [pc mons dd ^SGPane p ^SGKeyListener kl]
-  (do
-    (. kl flush)
-    (try
-      (let [dlg (dialog
-            :content (try (do
-                      (. kl flush)
-                       (str "YOU DESCEND TO FLOOR " (+ 2 @dlevel) "...  You explored "
-                          (count (filter true?
-                                         (vec (concat (flatten (map #(vec (:full-seen (val %))) (dissoc @cleared-levels @dlevel))) (vec (:full-seen @pc))))))
-                           " squares."))
-                       (catch Exception e "Don't press the buttons so fast!"))
-            :success-fn (fn [^JOptionPane jop]
-                          (try (do
-                                 (swap! cleared-levels assoc @dlevel (assoc @dd :full-seen (aclone ^"[Z" (:full-seen @pc))))
-                          (swap! dlevel inc)
-                          (if (contains? @cleared-levels @dlevel)
-                            (let [
-                                dd1 (:dungeon (get @cleared-levels @dlevel))
-                                dungeon-res (:res (get @cleared-levels @dlevel))
-                                shown (:shown (get @cleared-levels @dlevel))
-                                player-calc  (init-dungeon dd1 pc 10001.0)
-                                monster-calc (doall (map #(do (init-dungeon dd1 %) (swap! % assoc :dijkstra nil)) @mons))]
-                              (harray/afill! Boolean/TYPE [[i x] ^"[Z" (:full-seen @pc)] (aget ^"[Z" (:full-seen (get @cleared-levels ^int @dlevel)) i))
-                              (reset! dd {:dungeon dd1 :shown shown :res dungeon-res})
-                              (freshen dd p :full))
-                            (let [
-                                dd0 (prepare-bones)
-                                dd1 (first dd0)
-                                dungeon-res (dungeon-resistances dd1)
-                                shown (last dd0)
-                                player-calc  (init-dungeon dd1 pc 10001.0)
-                                monster-calc (doall (map #(init-dungeon dd1 %) @mons))
-                                blank-seen (init-full-seen)]
-                            (harray/afill! Boolean/TYPE [[i x] ^"[Z" (:full-seen @pc)] (aget ^"[Z" blank-seen i))
-                            (reset! dd {:dungeon dd1 :shown shown :res dungeon-res})
-                            (freshen dd p :full)))
 
-                          (.dispose (to-root jop)))
-
-                          (catch Exception e (println "Something's wrong in a success-fn")))
-                                 ))]
-      (show! (pack! dlg)))
-        (catch Exception iae (println "Please, don't press the keys so fast...")))))
-)
 (defn ascend
   [pc mons dd ^SGPane p]
   (swap! cleared-levels assoc @dlevel (assoc @dd :full-seen (aclone ^"[Z" (:full-seen @pc))))
@@ -590,10 +555,11 @@
                                 dungeon-res (:res (get @cleared-levels @dlevel))
                                 shown (:shown (get @cleared-levels @dlevel))
                                 player-calc  (init-dungeon dd1 pc 10002.0)
-                                monster-calc (doall (map #(do (init-dungeon dd1 %) (swap! % assoc :dijkstra nil)) @monsters))]
+                                monster-calc (doall (map #(do (init-dungeon dd1 %)(swap! % assoc :dijkstra nil)) @monsters))]
                             (harray/afill! boolean [[i x] ^"[Z" (:full-seen @pc)] (aget ^"[Z" (:full-seen (get @cleared-levels ^int @dlevel)) i))
                             (reset! dd {:dungeon dd1 :shown shown :res dungeon-res})
                             (freshen dd p :full)))
+
 (defn descend
   [pc mons dd ^SGPane p]
   (swap! cleared-levels assoc @dlevel (assoc @dd :full-seen (aclone ^"[Z" (:full-seen @pc))))
@@ -619,6 +585,7 @@
       (harray/afill! Boolean/TYPE [[i x] ^"[Z" (:full-seen @pc)] (aget ^"[Z" blank-seen i))
       (reset! dd {:dungeon dd1 :shown shown :res dungeon-res})
       (freshen dd p :full))))
+
 (defn move-player [pc mons dd ^SGPane p ^SGKeyListener kl newpos]
   (do (if
         (and (apply distinct? (conj (map (fn [atm] (:pos @atm)) @mons) newpos))
@@ -713,22 +680,33 @@
                 dun (atom {:dungeon dd :shown shown :res dungeon-res})
                 player-fov-first (swap! player assoc :seen (run-fov-player player dun))
                 ^SGKeyListener kl (SGKeyListener. true SGKeyListener$CaptureType/DOWN)
+                ^SGKeyListener kl-up (SGKeyListener. true SGKeyListener$CaptureType/UP)
                 p (pane)
                 stats (stats-pane)
                 msgs (messages-pane)
                 p-eh (display (border-panel :center (do (.refresh p) p) :west stats :south msgs))
+                pack-eh (pack! f)
                 kl-eh (.addKeyListener ^Component f kl)
+                kl-up-eh (.addKeyListener ^Component f kl-up)
                 tmr (timer (fn [t]
                              (when (.hasNext kl)
                                (let [^KeyEvent e (.next kl)]
-                                   (when (not (distinct? (.getKeyCode e) KeyEvent/VK_UP KeyEvent/VK_DOWN KeyEvent/VK_LEFT KeyEvent/VK_RIGHT))
+                                   (when (not (distinct? (.getKeyCode e) KeyEvent/VK_UP KeyEvent/VK_DOWN KeyEvent/VK_LEFT KeyEvent/VK_RIGHT
+                                                          KeyEvent/VK_H KeyEvent/VK_J KeyEvent/VK_K KeyEvent/VK_L))
                           (condp = (.getKeyCode e)
                               KeyEvent/VK_UP    (move-player player monsters dun p kl (- (:pos @player) wide))
                               KeyEvent/VK_DOWN  (move-player player monsters dun p kl (+ (:pos @player) wide))
                               KeyEvent/VK_LEFT  (move-player player monsters dun p kl (- (:pos @player) 1))
                               KeyEvent/VK_RIGHT (move-player player monsters dun p kl (+ (:pos @player) 1))
-                              nil)))))
-                           :delay 50)
+                              KeyEvent/VK_K   (move-player player monsters dun p kl (- (:pos @player) wide))
+                              KeyEvent/VK_J   (move-player player monsters dun p kl (+ (:pos @player) wide))
+                              KeyEvent/VK_H   (move-player player monsters dun p kl (- (:pos @player) 1))
+                              KeyEvent/VK_L   (move-player player monsters dun p kl (+ (:pos @player) 1))
+                              nil))))
+                         (when (.hasNext kl-up)
+                           (.flush kl)
+                           (.flush kl-up)))
+                           :delay 110)
                 ]
             (freshen dun p)
             ))
