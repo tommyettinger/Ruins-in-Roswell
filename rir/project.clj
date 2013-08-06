@@ -8,7 +8,7 @@
                  [org.clojure/clojure "1.5.1"]
                  [hiphip-aot "0.1.1"] ;[prismatic/hiphip "0.1.0"]
                  [seesaw "1.4.1"]
-                 [com.squidpony/squidlib "1.95"]]
+                 [com.squidpony/squidlib "1.95.1"]]
   ;:resource-paths ["lib/"]
   :jvm-opts ^:replace []
   :aot :all ;[rir.core rir.herringbone]
