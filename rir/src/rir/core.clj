@@ -35,11 +35,11 @@
 (defn make-player-label [] (label :text (str "AdventureMan. HP " (:hp @player)) :size [150 :by 16]))
 (defn make-welcome-message [] (label :text "Welcome to Ruins in... Something!":size [690 :by 16]))
 (defn make-other-message [script] (label :text script :size [690 :by 16]))
-(def monsters (atom (vec (repeatedly 10 #(atom {:pos 0 :show \M :hp 8 :vision 8 :dijkstra nil})))))
+(def monsters (atom (vec (for [i (range 1 16)] (atom {:pos 0 :show \M :hp 15 :vision 12 :dijkstra nil :ident (first (clojure.string/lower-case (Integer/toString i 16)))})))))
 (def ^TranslucenceWrapperFOV fov (TranslucenceWrapperFOV. ))
 
 (defn visible-monsters [] (filter (complement nil?) (for [mon @monsters] (if (> (aget (:seen @player) (mod (:pos @mon) wide) (quot (:pos @mon) wide)) 0)
-                                                (label :text (str "Monster. HP " (:hp @mon)))
+                                                (label :text (str "<" (:ident @mon) "> Monster. HP " (:hp @mon)))
                                                 nil))))
 
 (def f (frame :title "Ruins in Roswell" :on-close :exit :size [777 :by 700]))
@@ -457,11 +457,17 @@
             :success-fn (fn [jop] (System/exit 0))))))
       (freshen dd p))))
 
-(defn damage-monster [entity dd ^SGPane p]
+(defn damage-monster
+  ([entity dd ^SGPane p]
   (do (swap! entity assoc :hp (- (:hp @entity) (inc (rand-int 6))))
     (when (<= (:hp @entity) 0)
       (reset! monsters (remove #(= % entity) @monsters)))
      (freshen dd p)))
+  ([entity dd ^SGPane p dice die-size]
+  (do (swap! entity assoc :hp (- (:hp @entity) (reduce + (repeatedly dice #(inc (rand-int die-size))))))
+    (when (<= (:hp @entity) 0)
+      (reset! monsters (remove #(= % entity) @monsters)))
+     (freshen dd p))))
 
 
 (defn move-monster [mons dd ^SGPane p]
@@ -631,6 +637,16 @@
           (move-monster @mons dd p)
           (freshen dd p)))))
 
+(defn shoot [pc mons dd ^SGPane p ^SGKeyListener kl target]
+    (let [mon-list (drop-while #(not= target (:ident @%)) @mons)]
+      (when (seq mon-list)
+        (let [tgt (first mon-list)]
+      (when (> (aget (:seen @pc) (mod (:pos @tgt) wide) (quot (:pos @tgt) wide)) 0)
+        (damage-monster tgt dd p 1 2)
+        (move-monster @mons dd p)
+        (freshen dd p))
+    ))))
+
 
 (defn show-dungeon []
 	(invoke-later
@@ -691,8 +707,8 @@
                 tmr (timer (fn [t]
                              (when (.hasNext kl)
                                (let [^KeyEvent e (.next kl)]
-                                   (when (not (distinct? (.getKeyCode e) KeyEvent/VK_UP KeyEvent/VK_DOWN KeyEvent/VK_LEFT KeyEvent/VK_RIGHT
-                                                          KeyEvent/VK_H KeyEvent/VK_J KeyEvent/VK_K KeyEvent/VK_L))
+                                   ;(when (not (distinct? (.getKeyCode e) KeyEvent/VK_UP KeyEvent/VK_DOWN KeyEvent/VK_LEFT KeyEvent/VK_RIGHT
+                                   ;                       KeyEvent/VK_H KeyEvent/VK_J KeyEvent/VK_K KeyEvent/VK_L))
                           (condp = (.getKeyCode e)
                               KeyEvent/VK_UP    (move-player player monsters dun p kl (- (:pos @player) wide))
                               KeyEvent/VK_DOWN  (move-player player monsters dun p kl (+ (:pos @player) wide))
@@ -702,7 +718,24 @@
                               KeyEvent/VK_J   (move-player player monsters dun p kl (+ (:pos @player) wide))
                               KeyEvent/VK_H   (move-player player monsters dun p kl (- (:pos @player) 1))
                               KeyEvent/VK_L   (move-player player monsters dun p kl (+ (:pos @player) 1))
-                              nil))))
+
+                              KeyEvent/VK_0   (shoot player monsters dun p kl \0)
+                              KeyEvent/VK_1   (shoot player monsters dun p kl \1)
+                              KeyEvent/VK_2   (shoot player monsters dun p kl \2)
+                              KeyEvent/VK_3   (shoot player monsters dun p kl \3)
+                              KeyEvent/VK_4   (shoot player monsters dun p kl \4)
+                              KeyEvent/VK_5   (shoot player monsters dun p kl \5)
+                              KeyEvent/VK_6   (shoot player monsters dun p kl \6)
+                              KeyEvent/VK_7   (shoot player monsters dun p kl \7)
+                              KeyEvent/VK_8   (shoot player monsters dun p kl \8)
+                              KeyEvent/VK_9   (shoot player monsters dun p kl \9)
+                              KeyEvent/VK_A   (shoot player monsters dun p kl \a)
+                              KeyEvent/VK_B   (shoot player monsters dun p kl \b)
+                              KeyEvent/VK_C   (shoot player monsters dun p kl \c)
+                              KeyEvent/VK_D   (shoot player monsters dun p kl \d)
+                              KeyEvent/VK_E   (shoot player monsters dun p kl \e)
+                              KeyEvent/VK_F   (shoot player monsters dun p kl \f)
+                              nil)))
                          (when (.hasNext kl-up)
                            (.flush kl)
                            (.flush kl-up)))
