@@ -35,7 +35,7 @@
 (defn make-player-label [] (label :text (str "AdventureMan. HP " (:hp @player)) :size [150 :by 16]))
 (defn make-welcome-message [] (label :text "Welcome to Ruins in... Something!":size [690 :by 16]))
 (defn make-other-message [script] (label :text script :size [690 :by 16]))
-(def monsters (atom (vec (for [i (range 1 16)] (atom {:pos 0 :show \M :hp 15 :vision 12 :dijkstra nil :ident (first (clojure.string/lower-case (Integer/toString i 16)))})))))
+(def monsters (atom (vec (for [i (range 1 16)] (atom {:pos 0 :show \M :hp 11 :vision 12 :dijkstra nil :ident (first (clojure.string/lower-case (Integer/toString i 16)))})))))
 (def ^TranslucenceWrapperFOV fov (TranslucenceWrapperFOV. ))
 
 (defn visible-monsters [] (filter (complement nil?) (for [mon @monsters] (if (> (aget (:seen @player) (mod (:pos @mon) wide) (quot (:pos @mon) wide)) 0)
@@ -339,6 +339,13 @@
 (defn find-floors [a]
   (find-cells a floor))
 
+(defn find-lowest [a]
+  (let [low-val (apply min (vec a))]
+    (find-cells a low-val)))
+
+(defn find-monsters [m]
+    (into {} (for [mp (map #(:pos @%) m)] [mp wall])))
+
 (defn step [a i x]
   (if (>= x wall)
     x
@@ -353,7 +360,9 @@
 
 (defn dijkstra
   ([a]
-     (do (dijkstra a (find-walls a) (find-goals a))))
+     (do (dijkstra a (find-walls a) (find-lowest a))))
+  ([a ent]
+     (do (dijkstra a (dissoc (merge (find-walls a) (find-monsters @monsters)) (:pos @ent)) (find-lowest a))))
   ([a closed open-cells]
      (reset! open open-cells)
      (while (not (empty? @open))
@@ -473,10 +482,10 @@
 (defn move-monster [mons dd ^SGPane p]
   (let [flee-map (let [first-d (hiphip/aclone ^doubles (:dungeon @dd))
                                                      d-eh (aset first-d (int (:pos @player)) GOAL)
-                                                     new-d (hiphip/amap [x (dijkstra first-d)]
-                                                                        (if (>= x wall)
+                                                     new-d (hiphip/amap [[i x] (dijkstra first-d)]
+                                                                        (if (or (>= x wall) (= (:pos @player) i))
                                                                           wall
-                                                                          (* -1.7 x)
+                                                                          (Math/floor (* -1.25 x))
                                                                           ))]
                    (dijkstra new-d))]
                              (doseq [monster mons]
@@ -484,7 +493,7 @@
                                  (if (> (:hp @monster) 2)
                                    (when (> (aget monster-fov-new (mod (:pos @player) wide) (quot (:pos @player) wide)) 0)
                                      (do (swap! monster assoc :dijkstra
-                                               (let [new-d (hiphip/aclone ^doubles (:dungeon @dd))] (aset new-d (int (:pos @player)) GOAL) (dijkstra new-d)))))
+                                               (let [new-d (hiphip/aclone ^doubles (:dungeon @dd))] (aset new-d (int (:pos @player)) GOAL) (dijkstra new-d monster)))))
                                    (when (> (aget monster-fov-new (mod (:pos @player) wide) (quot (:pos @player) wide)) 0)
                                      (do (swap! monster assoc :dijkstra flee-map))))))
                              (doseq [mon mons]
