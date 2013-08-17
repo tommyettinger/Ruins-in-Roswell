@@ -10,7 +10,7 @@
            [squidpony.squidgrid.gui.swing SwingPane]
            [java.awt Font Component Point]
            [java.awt.event KeyListener KeyEvent]
-           [javax.swing JOptionPane]
+           [javax.swing JOptionPane JSpinner]
            [java.io File])
   (:gen-class))
 (set! *warn-on-reflection* true)
@@ -54,7 +54,7 @@
 (def sp (frame :title "Select Flee Multiplier" :id :flee :on-close :hide :visible? false))
 
 (defn spin []
-  (let [content (spinner :id :flee-spinner
+  (let [content ^JSpinner (spinner :id :flee-spinner
 ;           :listen [:focus-gained (fn [s] (println (.requestFocusInWindow (acquire [:#messages]))))]
            :model (spinner-model -1.5 :from -5.0 :to -0.8 :by 0.05))]
   (config! sp :content content)
@@ -507,10 +507,12 @@
 (defn move-monster [mons dd ^SGPane p]
   (let [flee-map (let [first-d (hiphip/aclone ^doubles (:dungeon @dd))
                                                      d-eh (aset first-d (int (:pos @player)) GOAL)
-                                                     new-d (hiphip/amap [[i x] (dijkstra first-d)]
-                                                                        (if (or (>= x wall) (= (:pos @player) i))
-                                                                          wall
-                                                                          (Math/floor (* (selection (acquire-sp [:#flee-spinner])) x))
+                                                     new-d (hiphip/afill! [[idx x] (dijkstra first-d)]
+                                                                        (if (= (:pos @player) idx)
+                                                                          10007.0
+                                                                          (if (>= x wall)
+                                                                            wall
+                                                                            (Math/floor (* (selection (acquire-sp [:#flee-spinner])) x)))
                                                                           ))]
                    (dijkstra new-d))]
                              (doseq [monster mons]
@@ -717,7 +719,7 @@
             )))
 
 
-(defn -main-do-not-run
+(defn -main
 	[& args]
 ;  (comment ;"Remove these semicolons to view a dungeon when you run"
   (invoke-later
@@ -772,7 +774,13 @@
                               KeyEvent/VK_E   (shoot player monsters dun p kl \e)
                               KeyEvent/VK_F   (shoot player monsters dun p kl \f)
 
-                              KeyEvent/VK_W   (do (move-monster @monsters dun p) (freshen dun p))
+                              KeyEvent/VK_W   (let [mm (move-monster @monsters dun p)]
+                                                (freshen dun p)
+                                                (doseq [flee-row (partition wide mm)]
+                                                  (println (apply str (map #(format " %-4d" (int %)) flee-row))))
+                                                (println "\n Player pos: " (:pos @player)
+                                                          "  Player X: " (mod (:pos @player) wide)
+                                                          "  Player Y: " (quot (:pos @player) wide)))
                               nil)))
                          (when (.hasNext kl-up)
                            (.flush kl)

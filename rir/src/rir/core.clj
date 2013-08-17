@@ -481,11 +481,13 @@
 
 (defn move-monster [mons dd ^SGPane p]
   (let [flee-map (let [first-d (hiphip/aclone ^doubles (:dungeon @dd))
-                                                     d-eh (aset first-d (int (:pos @player)) GOAL)
-                                                     new-d (hiphip/amap [[i x] (dijkstra first-d)]
-                                                                        (if (or (>= x wall) (= (:pos @player) i))
-                                                                          wall
-                                                                          (Math/floor (* -1.25 x))
+                                                     d-eh (aset first-d (double (:pos @player)) GOAL)
+                                                     new-d (hiphip/afill! [[idx x] (dijkstra first-d)]
+                                                                        (if (= (:pos @player) idx)
+                                                                          10007.0
+                                                                          (if (>= x wall)
+                                                                            wall
+                                                                            (Math/floor (* -1.4 x)))
                                                                           ))]
                    (dijkstra new-d))]
                              (doseq [monster mons]
@@ -543,7 +545,8 @@
                                             ) mon)))
 ;                               (when (= \# (aget ^chars (:shown @dd) (:pos @mon)))
 ;                                 (println "Monster intersecting with wall"))
-                                 )))
+                                 )
+    flee-map))
 (defn escape-dialog
   [pc mons dd ^SGPane p ^SGKeyListener kl]
   (do
@@ -744,6 +747,16 @@
                               KeyEvent/VK_D   (shoot player monsters dun p kl \d)
                               KeyEvent/VK_E   (shoot player monsters dun p kl \e)
                               KeyEvent/VK_F   (shoot player monsters dun p kl \f)
+
+                              KeyEvent/VK_W  (do (move-monster @monsters dun p)
+                                                 (freshen dun p)
+                                               ; (doseq [flee-row (partition wide mm)]
+                                               ;   (println (apply str (map #(format " %-4d" (int %)) flee-row))))
+                                               ; (println "\n Player pos: " (:pos @player)
+                                               ;           "  Player X: " (mod (:pos @player) wide)
+                                               ;           "  Player Y: " (quot (:pos @player) wide))
+                                                )
+
                               nil)))
                          (when (.hasNext kl-up)
                            (.flush kl)
