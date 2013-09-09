@@ -1,6 +1,7 @@
 (ns rir.combat
   (:use rir.weapons))
 
+(def wide 42)
 (def stats {
 :armor {:stat "Armor", :description "Your equipment's durability; your clothing's ability to hide your movement; how attentive you are to what you wear.", :effect "Flaw Defense", :effect-meaning "Having your weaknesses exposed less often."}
 :brawn {:stat "Brawn", :description "Your physical strength; how much you can carry; your familiarity with how to damage objects or people.", :effect "Damage Offense", :effect-meaning "Dealing more damage."}
@@ -19,20 +20,54 @@
 ; Armor    Endurance   Finesse     Quickness   Senses   Knowledge   Brawn    Finesse     Brawn     Brawn     Finesse     Deception   Finesse     Tenacity    Finesse       Tenacity
 ; Block    Counter     Disarm      Trip        Aim      Guide       Pin      Bounce      Grab      Push      Pull        Distract    Bonk        Threat      Distant Bonk  Distant Threat
 (def maneuvers {
-:block {:maneuver "Block" :stat :armor :trigger :guard :hit-calc (fn [user enemy] (> (+ (get-in user [:stats :armor]) 2 (rand-int 6) (rand-int 6)) (+ 7 (get-in enemy [:stats :finesse])))) }
-:counter {:maneuver "Counter" :stat :endurance :trigger :guard :hit-calc (fn [user enemy] (> (+ (get-in user [:stats :endurance]) 2 (rand-int 6) (rand-int 6)) (+ 9 (get-in enemy [:stats :quickness]))))}
-:disarm {:maneuver "Disarm" :stat :finesse :trigger :major :hit-calc (fn [user enemy] (> (+ (get-in user [:stats :finesse]) 2 (rand-int 6) (rand-int 6)) (+ 9 (get-in enemy [:stats :armor]))))}
-:trip {:maneuver "Trip" :stat :quickness :trigger :major :hit-calc (fn [user enemy] (> (+ (get-in user [:stats :quickness]) 2 (rand-int 6) (rand-int 6)) (+ 7 (get-in enemy [:stats :finesse]))))}
-:aim {:maneuver "Aim" :stat :senses :trigger :minor :hit-calc (fn [user enemy] (> (+ (get-in user [:stats :senses]) 2 (rand-int 6) (rand-int 6)) (+ 5 (get-in enemy [:stats :deception]))))}
-:guide {:maneuver "Guide" :stat :knowledge :trigger :minor :hit-calc (fn [user enemy] (> (+ (get-in user [:stats :knowledge]) 2 (rand-int 6) (rand-int 6)) (+ 7 (get-in enemy [:stats :finesse]))))}
-:pin {:maneuver "Pin" :stat :brawn :trigger :attack}
-:bounce {:maneuver "Bounce" :stat :finesse :trigger :attack}
-:grab {:maneuver "Grab" :stat :brawn :trigger :major}
-:push {:maneuver "Push" :stat :brawn :trigger :minor}
-:pull {:maneuver "Pull" :stat :finesse :trigger :minor}
-:distract {:maneuver "Distract" :stat :deception :trigger :major}
-:bonk {:maneuver "Bonk" :stat :finesse :trigger :major}
-:threat {:maneuver "Threat" :stat :tenacity :trigger :major}
-:distant-bonk {:maneuver "Distant Bonk" :stat :finesse :trigger :major}
-:distant-threat {:maneuver "Distant Threat" :stat :tenacity :trigger :major}
+:block {:maneuver "Block" :stat :armor :opposed :finesse :trigger :guard :difficulty 7 :effect :blocking}
+:counter {:maneuver "Counter" :stat :endurance :opposed :quickness :trigger :guard :difficulty 9 :effect :riposte}
+:disarm {:maneuver "Disarm" :stat :finesse :opposed :armor :trigger :major :difficulty 9 :effect :disarmed}
+:trip {:maneuver "Trip" :stat :quickness :opposed :finesse :trigger :major :difficulty 7 :effect :prone}
+:aim {:maneuver "Aim" :stat :senses :opposed :deception :trigger :minor :difficulty 5 :effect :locked}
+:guide {:maneuver "Guide" :stat :knowledge :opposed :finesse :trigger :minor :difficulty 7 :effect :exposed}
+:pin {:maneuver "Pin" :stat :brawn :opposed :armor :trigger :attack :difficulty 10 :effect :pinned}
+:bounce {:maneuver "Bounce" :stat :finesse :opposed :quickness :trigger :attack :difficulty 6 :effect :repeat}
+:grab {:maneuver "Grab" :stat :brawn :opposed :brawn :trigger :major :difficulty 6 :effect :pinned}
+:push {:maneuver "Push" :stat :brawn :opposed :endurance :trigger :minor :difficulty 6 :effect :knockback}
+:pull {:maneuver "Pull" :stat :finesse :opposed :endurance :trigger :minor :difficulty 6 :effect :knockfront}
+:distract {:maneuver "Distract" :stat :deception :opposed :insight :trigger :major :difficulty 5 :effect :confused}
+:bonk {:maneuver "Bonk" :stat :finesse :opposed :endurance :trigger :major :difficulty 9 :effect :unconscious}
+:threat {:maneuver "Threat" :stat :tenacity :opposed :tenacity :trigger :major :difficulty 9 :effect :surrender}
+:distant-bonk {:maneuver "Distant Bonk" :stat :finesse :opposed :endurance :trigger :major :difficulty 10 :effect :unconscious}
+:distant-threat {:maneuver "Distant Threat" :stat :tenacity :opposed :tenacity :trigger :major :difficulty 10 :effect :surrender}
 })
+(defn spawn-item [item pos] nil)
+(defn attack [user enemy] nil)
+(defn move [nswe] nil)
+(defn kill [enemy] nil)
+(def status-effects {
+:blocking (fn [user enemy] (swap! user update-in [:temp :damage-defense] (partial + 5)))
+:riposte (fn [user enemy] (attack user enemy))
+:disarmed (fn [user enemy] (swap! enemy #(when (:uses-weapons %) (do (spawn-item (:held-weapon %) (:pos %)) (assoc % :held-weapon nil)))))
+:locked (fn [user enemy] (swap! user update-in [:temp :flaw-offense] (partial + 5)))
+:prone (fn [user enemy] (swap! enemy update-in [:temp :damage-defense] (partial - 5)))
+:exposed (fn [user enemy] (swap! enemy update-in [:temp :flaw-defense] (partial - 5)))
+:pinned (fn [user enemy] (swap! enemy update-in [:temp :accuracy-defense] (partial - 5)))
+:confused (fn [user enemy] (swap! enemy update-in [:temp :flaw-offense] (partial - 5)))
+:repeat (fn [user enemy] (attack user enemy))
+:knockback (fn [user enemy] (swap! enemy assoc :pos (move (first (last (sort-by #(second %1) [
+                                                                      [:n (- (quot (:pos @user) wide) (quot (:pos @enemy) wide))]
+                                                                      [:s (- (quot (:pos @enemy) wide) (quot (:pos @user) wide))]
+                                                                      [:w (- (mod (:pos @user) wide) (mod (:pos @enemy) wide))]
+                                                                      [:e (- (mod (:pos @enemy) wide) (mod (:pos @user) wide))]]))))))
+:knockfront (fn [user enemy] (swap! enemy assoc :pos (move (first (first (sort-by #(second %1) [
+                                                                      [:n (- (quot (:pos @user) wide) (quot (:pos @enemy) wide))]
+                                                                      [:s (- (quot (:pos @enemy) wide) (quot (:pos @user) wide))]
+                                                                      [:w (- (mod (:pos @user) wide) (mod (:pos @enemy) wide))]
+                                                                      [:e (- (mod (:pos @enemy) wide) (mod (:pos @user) wide))]]))))))
+:unconscious (fn [user enemy] (kill enemy))
+:surrender (fn [user enemy] (swap! enemy assoc :ai :flee))
+                     })
+(defn maneuver-roll [mnvr user enemy] (> (+
+                                            (get-in @user [:stats ((maneuvers :mnvr) :stat)])
+                                            1
+                                            (rand-int 10))
+                                         (+ ((maneuvers :mnvr) :difficulty) (get-in @enemy [:stats ((maneuvers :mnvr) :opposed)]))))
+
+

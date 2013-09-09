@@ -11,7 +11,7 @@
                  [com.squidpony/squidlib "1.95.1"]]
   ;:resource-paths ["lib/"]
   :jvm-opts ^:replace []
-  :aot :all ;[rir.core rir.herringbone]
+  :aot [rir.herringbone rir.weapons rir.combat rir.core]
   :main rir.core
  )
 ; ^:skip-aot
